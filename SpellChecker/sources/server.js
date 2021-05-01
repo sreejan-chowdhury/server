@@ -95,7 +95,7 @@ if (cluster.isMaster) {
 		const certificateKey = fs.readFileSync(config.get('ssl.cert')).toString();
 		//const trustedCertificate = fs.readFileSync(config.get('ssl.ca')).toString();
 		//See detailed options format here: http://nodejs.org/api/tls.html#tls_tls_createserver_options_secureconnectionlistener
-		const options = {key: privateKey, cert: certificateKey, ca: [trustedCertificate]};
+		const options = {key: privateKey, cert: certificateKey};
 
 		server = https.createServer(options, app);
 	} else {

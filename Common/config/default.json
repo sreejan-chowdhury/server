@@ -64,20 +64,14 @@
 		"ttl" : 300,
 		"cachesize" : 1000
 	},
-	"openpgpjs": {
-		"config": {
-		},
-		"encrypt": {
-			"passwords": ["verysecretstring"]
-		},
-		"decrypt": {
-			"passwords": ["verysecretstring"]
-		}
-	},
 	"services": {
 		"CoAuthoring": {
+			"ssl" :{
+                "key" : "",
+                "cert" : ""
+            },
 			"server": {
-				"port": 8000,
+				"port": 7084,
 				"workerpercpu": 1,
 				"mode": "development",
 				"limits_tempfile_upload": 104857600,
@@ -119,11 +113,11 @@
 				"limits_image_types_upload": "jpg;jpeg;jpe;png;gif;bmp"
 			},
 			"sql": {
-				"type": "postgres",
+				"type": "mysql",
 				"tableChanges": "doc_changes",
 				"tableResult": "task_result",
 				"dbHost": "localhost",
-				"dbPort": 5432,
+				"dbPort": 7306,
 				"dbName": "onlyoffice",
 				"dbUser": "onlyoffice",
 				"dbPass": "onlyoffice",
@@ -215,7 +209,7 @@
 				"autostart": []
 			},
 			"editor":{
-				"spellcheckerUrl": "",
+				"spellcheckerUrl": "/spellchecker",
 				"reconnection":{
 					"attempts": 50,
 					"delay": "2s"
@@ -296,8 +290,12 @@
 		"silent": true
 	},
 	"SpellChecker": {
+		"ssl" :{
+            "key" : "",
+            "cert" : ""
+        },
 		"server": {
-			"port": 8080,
+			"port": 7085,
 			"mode": "development"
 		}
 	}

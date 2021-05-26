@@ -1,0 +1,70 @@
+{
+  "log": {
+    "filePath": "../documentserver/server/Common/config/log4js/logconfig.json"
+  },
+  "storage": {
+    "fs": {
+      "folderPath": "../documentserver/App_Data/cache/files"
+    }
+  },
+  "services": {
+    "CoAuthoring": {
+      "server": {
+        "static_content": {
+          "/fonts": {
+            "path": "../documentserver/fonts",
+            "options": {"maxAge": "7d"}
+          },
+          "/sdkjs": {
+            "path": "../documentserver/sdkjs",
+            "options": {"maxAge": "7d"}
+          },
+          "/web-apps": {
+            "path": "../documentserver/web-apps",
+            "options": {"maxAge": "7d"}
+          },
+          "/sdkjs-plugins": {
+            "path": "../documentserver/sdkjs-plugins",
+            "options": {"maxAge": "7d"}
+          },
+          "/App_Data": {
+            "path": "../documentserver/App_Data",
+            "options": {"maxAge": "7d"}
+          }
+        }
+      },
+      "utils": {
+        "utils_common_fontdir": "/usr/share/fonts"
+      },
+      "request-filtering-agent" : {
+        "allowPrivateIPAddress": true,
+        "allowMetaIPAddress": true
+      },
+      "sockjs": {
+        "sockjs_url": "../documentserver/web-apps/vendor/sockjs/sockjs.min.js"
+      }
+    }
+  },
+  "license": {
+    "license_file": "./../documentserver/license.lic",
+    "warning_limit_percents": 70,
+    "packageType": 0
+  },
+  "FileConverter": {
+    "converter": {
+      "fontDir": "/usr/share/fonts",
+      "presentationThemesDir": "../documentserver/sdkjs/slide/themes",
+      "x2tPath": "../documentserver/server/FileConverter/bin/x2t",
+      "docbuilderPath": "../documentserver/server/FileConverter/bin/docbuilder",
+      "docbuilderAllFontsPath": "../documentserver/App_Data/docbuilder/AllFonts.js"
+    }
+  },
+  "FileStorage": {
+    "directory": "../documentserver/App_Data"
+  },
+  "SpellChecker": {
+    "server": {
+      "dictDir": "../documentserver/server/SpellChecker/dictionaries"
+    }
+  }
+}

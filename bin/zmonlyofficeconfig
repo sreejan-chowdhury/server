@@ -1,0 +1,256 @@
+#!/bin/bash
+# 
+# ***** BEGIN LICENSE BLOCK *****
+# Zimbra Collaboration Suite Server
+# Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2016, 2021 Synacor, Inc.
+#
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software Foundation,
+# version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+# without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+# You should have received a copy of the GNU General Public License along with this program.
+# If not, see <https://www.gnu.org/licenses/>.
+# ***** END LICENSE BLOCK *****
+# 
+
+source /opt/zimbra/bin/zmshutil || exit 1
+zmsetvars
+
+zmjq="/opt/zimbra/onlyoffice/bin/jq"
+
+defaultjson_path="/opt/zimbra/onlyoffice/documentserver/server/Common/config/default.json"
+mysql_port=7306
+zimbra_mysql_user="zimbra"
+zimbra_mysql_password=""
+server_crt="/opt/zimbra/ssl/zimbra/server/server.crt"
+server_key="/opt/zimbra/ssl/zimbra/server/server.key"
+
+STATUS=0
+
+document_editing_JWT_secret=""
+
+usage() {
+  echo ""
+  echo "Invalid argument. Allowed :"
+  echo "new                     Configure Onlyoffice on the server"
+  echo "update-jwt-secret arg0  Update Onlyoffice server's jwt secret with the passed value"
+  echo "update-db               Update Onlyoffice server's DB connection details from config"
+  echo ""
+  exit
+}
+
+generate_random()
+{
+  length=8
+  digits=({2..9})
+  lower=({a..k} {m..n} {p..z})
+  upper=({A..N} {P..Z})
+  CharArray=(${digits[*]} ${lower[*]} ${upper[*]})
+  ArrayLength=${#CharArray[*]}
+  password=""
+  for i in `seq 1 $length`
+  do
+          index=$(($RANDOM%$ArrayLength))
+          char=${CharArray[$index]}
+          password=${password}${char}
+  done
+  echo $password
+
+}
+
+update_db_config()
+{
+  #port
+  config_mysql_port=$(su - zimbra -c "zmlocalconfig -x -s mysql_port")
+  if [ ! -z "$config_mysql_port" ]; then
+    IFS='='
+    read -ra arr <<< "$config_mysql_port"
+    mysql_port=$(echo "${arr[1]}" | xargs)
+    
+  fi
+
+
+  content=$(${zmjq} --argjson mysql_port "$mysql_port" '.services.CoAuthoring.sql.dbPort=$mysql_port' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+
+  #user
+  config_mysql_user=$(su - zimbra -c "zmlocalconfig -x -s zimbra_mysql_user")
+  if [ ! -z "$config_mysql_user" ]; then
+    IFS='='
+    read -ra arr <<< "$config_mysql_user"
+    zimbra_mysql_user=$(echo "${arr[1]}" | xargs)
+    
+  fi
+
+  content=$(${zmjq} --arg zimbra_mysql_user "$zimbra_mysql_user" '.services.CoAuthoring.sql.dbUser=$zimbra_mysql_user' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+
+  #password
+  config_mysql_pass=$(su - zimbra -c "zmlocalconfig -x -s zimbra_mysql_password")
+  if [ ! -z "$config_mysql_pass" ]; then
+    IFS='='
+    read -ra arr <<< "$config_mysql_pass"
+    zimbra_mysql_password=$(echo "${arr[1]}" | xargs)
+    
+  fi
+
+  content=$(${zmjq} --arg zimbra_mysql_password "$zimbra_mysql_password" '.services.CoAuthoring.sql.dbPass=$zimbra_mysql_password' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+
+}
+
+update_certificate_path()
+{
+  content=$(${zmjq} --arg server_crt "$server_crt" '.services.CoAuthoring.ssl.cert=$server_crt' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+
+  content=$(${zmjq} --arg server_crt "$server_crt" '.SpellChecker.ssl.cert=$server_crt' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+
+  content=$(${zmjq} --arg server_key "$server_key" '.services.CoAuthoring.ssl.key=$server_key' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+
+  content=$(${zmjq} --arg server_key "$server_key" '.SpellChecker.ssl.key=$server_key' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+}
+
+update_token_config()
+{
+
+  content=$(${zmjq} '.services.CoAuthoring.token.enable.browser=true' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+
+  content=$(${zmjq} '.services.CoAuthoring.token.enable.request.inbox=true' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+
+  content=$(${zmjq} '.services.CoAuthoring.token.enable.request.outbox=true' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+
+  content=$(${zmjq} '.services.CoAuthoring.requestDefaults.rejectUnauthorized=false' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+
+}
+
+update_jwt_config()
+{
+  jwtsecret=$1
+  cmd="su - zimbra -c \"zmprov -m -l mcf zimbraDocumentEditingJwtSecret ${jwtsecret}\""
+  eval "$cmd"
+  RC=$?
+  if [ $RC -ne "0" ]; then
+    STATUS=$R
+    echo "Updating zimbraDocumentEditingJwtSecret faced problem."
+  fi
+
+  #update the default.json
+  content=$(${zmjq} --arg jwtsecret "$jwtsecret" '.services.CoAuthoring.secret.browser.string=$jwtsecret' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+
+  content=$(${zmjq} --arg jwtsecret "$jwtsecret" '.services.CoAuthoring.secret.inbox.string=$jwtsecret' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+
+  content=$(${zmjq} --arg jwtsecret "$jwtsecret" '.services.CoAuthoring.secret.outbox.string=$jwtsecret' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+
+  content=$(${zmjq} --arg jwtsecret "$jwtsecret" '.services.CoAuthoring.secret.session.string=$jwtsecret' ${defaultjson_path})
+  echo "${content}" > ${defaultjson_path}
+}
+
+set_jwt_secret()
+{
+  if [ -z "$1" ]; then
+    echo "Setting Random Secret..."
+    jwtsecret=$(generate_random)
+    update_jwt_config $jwtsecret
+  else
+    jwtsecret=$1
+    update_jwt_config $jwtsecret
+  fi
+}
+
+generate_fonts_data()
+{
+  mkdir -p /opt/zimbra/onlyoffice/documentserver/fonts
+  
+  fonts_gen=$(LD_LIBRARY_PATH=/opt/zimbra/onlyoffice/documentserver/server/FileConverter/bin /opt/zimbra/onlyoffice/documentserver/server/tools/allfontsgen \
+  --input="/opt/zimbra/onlyoffice/documentserver/core-fonts" \
+  --allfonts-web="/opt/zimbra/onlyoffice/documentserver/sdkjs/common/AllFonts.js" \
+  --allfonts="/opt/zimbra/onlyoffice/documentserver/server/FileConverter/bin/AllFonts.js" \
+  --images="/opt/zimbra/onlyoffice/documentserver/sdkjs/common/Images" \
+  --selection="/opt/zimbra/onlyoffice/documentserver/server/FileConverter/bin/font_selection.bin" \
+  --output-web="/opt/zimbra/onlyoffice/documentserver/fonts" \
+  --use-system="true")
+  R=$?
+  if [ $R -ne "0" ]; then
+    STATUS=$R
+    echo "Error while generating fonts. ${fonts_gen}"
+  fi
+
+}
+  
+generate_presentation_themes()
+{
+  presentation_themes_gen=$(LD_LIBRARY_PATH=/opt/zimbra/onlyoffice/documentserver/server/FileConverter/bin /opt/zimbra/onlyoffice/documentserver/server/tools/allthemesgen \
+    --converter-dir="/opt/zimbra/onlyoffice/documentserver/server/FileConverter/bin"\
+    --src="/opt/zimbra/onlyoffice/documentserver/sdkjs/slide/themes"\
+    --output="/opt/zimbra/onlyoffice/documentserver/sdkjs/common/Images")
+  R=$?
+  if [ $R -ne "0" ]; then
+    STATUS=$R
+    echo "Error while generating presentation themes. ${presentation_themes_gen}"
+  fi
+}
+
+type="$1"
+if [ "$#" -eq 0 ]; then
+    type="new"
+fi
+
+
+case "$type" in 
+  new)
+
+    jwtsecret=$(su - zimbra -c "zmprov -m -l getConfig zimbraDocumentEditingJwtSecret")
+    if [ -z "$jwtsecret" ]; then
+      echo "JWT Secret not set."
+      set_jwt_secret
+    else
+      IFS=':'
+      read -ra arr <<< "$jwtsecret"
+      document_editing_JWT_secret=$(echo "${arr[1]}" | xargs)
+      update_jwt_config $document_editing_JWT_secret
+    fi
+
+    update_certificate_path
+    update_token_config
+    update_db_config
+    generate_fonts_data
+    generate_presentation_themes
+    echo "Onlyoffice configuration done."
+    exit $STATUS
+  ;;
+
+  update-jwt-secret)
+
+    if [ "$#" -ne 2 ]; then
+       usage
+       exit 1
+    fi
+    jwtsecret="$2"
+
+    update_jwt_config $jwtsecret
+    exit $STATUS
+  ;;
+
+  update-db )
+    update_db_config
+    exit $STATUS
+  ;;
+  *)
+    usage
+    exit 1
+  ;;
+esac
